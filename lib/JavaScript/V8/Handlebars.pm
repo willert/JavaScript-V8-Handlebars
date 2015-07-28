@@ -4,6 +4,76 @@ use 5.006;
 use strict;
 use warnings;
 
+our $VERSION = '0.01';
+
+use File::ShareDir qw/module_file/;
+use JavaScript::V8;
+
+use File::Slurp qw/slurp/;
+
+sub new {
+	my( $class, @opts ) = @_;
+
+	my $self = bless {}, $class;
+
+	$self->_build_context;
+
+	return $self;
+}
+
+sub _build_context {
+	my( $self ) = @_;
+
+	my $c = $self->{c} = JavaScript::V8::Context->new;
+
+	$c->eval( scalar slurp module_file( __PACKAGE__, "handlebars-v3.0.3.js" ) );
+	die $@ if $@;
+
+	#$c->eval( 'Handlebars.registerHelper("test", test )' );
+
+
+	for my $meth ( qw/compile precompile template safeString escapeString/ ) {
+		my $code = $self->{$meth} = $c->eval( "Handlebars.$meth" );
+		die $@ if $@;
+		no strict 'refs';*$meth = sub { shift; $code->(@_); };
+	}
+}
+
+sub c {
+	return $_[0]->{c};
+}
+
+sub registerHelper {
+	my( $self, $name, $code ) = @_;
+	my $bind_name = "JVHELPER$name";
+
+	if( ref $code eq 'CODE' ) {
+		$self->c->bind( $bind_name, $code );
+		$self->c->eval( "Handlebars.registerHelper('$name',$bind_name)" );
+	}
+	elsif(ref $code eq '') { #Better be javascript
+		# Should this be a requirement?
+		if( $code !~ /function\s*\(/ ) { die "Javascript helper must be a anonymous function!" }
+
+		$code =~ s/function/function $bind_name/;
+
+		$self->c->eval($code);
+		$self->c->eval( "Handlebars.registerHelper('$name',$bind_name)" );
+	}
+	else {
+		die "Bad helper [$code]";
+	}
+}
+
+sub render_string {
+	my( $self, $template, $env ) = @_;
+	$self->compile( $template )->( $env );
+}
+
+
+
+1;
+
 =head1 NAME
 
 JavaScript::V8::Handlebars - The great new JavaScript::V8::Handlebars!
@@ -11,43 +81,6 @@ JavaScript::V8::Handlebars - The great new JavaScript::V8::Handlebars!
 =head1 VERSION
 
 Version 0.01
-
-=cut
-
-our $VERSION = '0.01';
-
-
-=head1 SYNOPSIS
-
-Quick summary of what the module does.
-
-Perhaps a little code snippet.
-
-    use JavaScript::V8::Handlebars;
-
-    my $foo = JavaScript::V8::Handlebars->new();
-    ...
-
-=head1 EXPORT
-
-A list of functions that can be exported.  You can delete this section
-if you don't export anything, such as for a purely object-oriented module.
-
-=head1 SUBROUTINES/METHODS
-
-=head2 function1
-
-=cut
-
-sub function1 {
-}
-
-=head2 function2
-
-=cut
-
-sub function2 {
-}
 
 =head1 AUTHOR
 
@@ -66,7 +99,7 @@ automatically be notified of progress on your bug as I make changes.
 
 You can find documentation for this module with the perldoc command.
 
-    perldoc JavaScript::V8::Handlebars
+perldoc JavaScript::V8::Handlebars
 
 
 You can also look for information at:
@@ -91,8 +124,6 @@ L<http://search.cpan.org/dist/JavaScript-V8-Handlebars/>
 
 =back
 
-
-=head1 ACKNOWLEDGEMENTS
 
 
 =head1 LICENSE AND COPYRIGHT
@@ -137,5 +168,3 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 =cut
-
-1; # End of JavaScript::V8::Handlebars
