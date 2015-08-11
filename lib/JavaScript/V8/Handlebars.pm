@@ -6,10 +6,9 @@ use warnings;
 
 our $VERSION = '0.01';
 
-use File::ShareDir qw/module_file/;
-use JavaScript::V8;
-
+use File::ShareDir qw/module_dir/;
 use File::Slurp qw/slurp/;
+use JavaScript::V8;
 
 sub new {
 	my( $class, @opts ) = @_;
@@ -26,43 +25,98 @@ sub _build_context {
 
 	my $c = $self->{c} = JavaScript::V8::Context->new;
 
-	$c->eval( scalar slurp module_file( __PACKAGE__, "handlebars-v3.0.3.js" ) );
+	my $module_dir = module_dir( __PACKAGE__ );
+	my $js_file = glob "$module_dir/*.js";
+
+	# slurp returns a list in list context..
+	$c->eval( scalar slurp $js_file );
 	die $@ if $@;
 
-	#$c->eval( 'Handlebars.registerHelper("test", test )' );
 
-
-	for my $meth ( qw/compile precompile template safeString escapeString/ ) {
-		my $code = $self->{$meth} = $c->eval( "Handlebars.$meth" );
+	for my $meth (qw/precompile registerHelper registerPartial template compile safeString escapeString/ ) {
+		$self->{$meth} = $c->eval( "Handlebars.$meth" );
 		die $@ if $@;
-		no strict 'refs';*$meth = sub { shift; $code->(@_); };
+	}
+
+	for my $meth ( qw/safeString escapeString registerPartial/ ) {
+		my $code = $self->{$meth};
+		no strict 'refs';
+			*$meth = sub { shift; $code->(@_); };
 	}
 }
 
 sub c {
 	return $_[0]->{c};
 }
+sub eval {
+	my $self = shift;
+	my $ret = $self->{c}->eval(@_);
+	die $@ if $@;
+	return $ret;
+}
+
+sub precompile {
+	my( $self, $template, $opts ) = @_;
+
+	return $self->{precompile}->($template, $opts);
+}
+sub precompile_file {
+	return $_[0]->precompile( slurp($_[1]), $_[2] );
+}
+
+sub compile {
+	my( $self, $template, $opts ) = @_;
+
+	return $self->{compile}->($template, $opts);
+}
+sub compile_file {
+	return $_[0]->compile( slurp($_[1]), $_[2] );
+}
+
 
 sub registerHelper {
 	my( $self, $name, $code ) = @_;
+	# We need a unique name to store our new helper inside the global javascript context.
 	my $bind_name = "JVHELPER$name";
 
 	if( ref $code eq 'CODE' ) {
 		$self->c->bind( $bind_name, $code );
-		$self->c->eval( "Handlebars.registerHelper('$name',$bind_name)" );
+		$self->eval( "Handlebars.registerHelper('$name',$bind_name)" );
 	}
 	elsif(ref $code eq '') { #Better be javascript
 		# Should this be a requirement?
-		if( $code !~ /function\s*\(/ ) { die "Javascript helper must be a anonymous function!" }
+		if( $code !~ /function\s*\(/ ) { die "Javascript helper must be an anonymous function!" }
 
 		$code =~ s/function/function $bind_name/;
 
-		$self->c->eval($code);
-		$self->c->eval( "Handlebars.registerHelper('$name',$bind_name)" );
+		$self->eval($code);
+		$self->eval( "Handlebars.registerHelper('$name',$bind_name)" );
 	}
 	else {
-		die "Bad helper [$code]";
+		die "Bad helper should be CODEREF or JS source [$code]";
 	}
+
+	return 1;
+}
+
+sub template {
+	my( $self, $template_code ) = @_;
+
+	if( ref $template_code eq '' ) {
+		#Parens force 'expression' context
+		return $self->{template}->($self->eval( "($template_code)" )); 
+	}
+	elsif( ref $template_code eq 'HASH' ) {
+		return $self->{template}->( $template_code );
+	}
+}
+
+sub add_to_context {
+	my( $self, $code ) = @_;
+	$self->eval( $code );
+}
+sub add_to_context_file {
+	$_[0]->add_to_context( slurp $_[1] );
 }
 
 sub render_string {
