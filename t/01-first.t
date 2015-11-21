@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Test::More;
 
-plan tests => 13;
+plan tests => 18;
 
 #BEGIN {
     use_ok( 'JavaScript::V8::Handlebars' ) || print "Bail out!\n";
@@ -39,4 +39,15 @@ ok( $precompile );
 ok( my $template = $hb->template( $precompile ) );
 
 is( $template->({bar=>43}), "test 43" );
+
+
+my $c = $hb->c; #Get a JS context with Handlebars preloaded
+
+ok( $hb->add_template( "precompiletest", "hello this is {{var}}" ) );
+my $code = $hb->precompiled;
+ok( $code );
+ok( $c->eval( $code ) );
+
+is( $c->eval( "Handlebars.templates.precompiletest({var:'precompiled'})" ), "hello this is precompiled" );
+ok( not defined $@ );
 
