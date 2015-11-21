@@ -160,13 +160,13 @@ sub execute_template {
 sub precompiled {
 	my( $self ) = @_;
 
-	my $out = "Handlebars.templates = {}\n";
+	my $out = "var template = Handlebars.template, templates = Handlebars.templates = Handlebars.templates || {};\n";
 
 	while( my( $name, $template ) = each %{ $self->{template_code} } ) {
-		$out .= "Handlebars.templates.$name = Handlebars.template( $template );\n";
+		$out .= "templates['$name'] = template( $template );\n";
 	}
 
-	print $out;
+	return $out;
 }
 
 
