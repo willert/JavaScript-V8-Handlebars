@@ -8,6 +8,7 @@ our $VERSION = '0.01';
 
 use File::ShareDir qw/module_dir/;
 use File::Slurp qw/slurp/;
+use File::Spec;
 use JavaScript::V8;
 
 sub new {
@@ -61,7 +62,7 @@ sub precompile {
 	return $self->{precompile}->($template, $opts);
 }
 sub precompile_file {
-	return $_[0]->precompile( slurp($_[1]), $_[2] );
+	return $_[0]->precompile( scalar slurp($_[1]), $_[2] );
 }
 
 sub compile {
@@ -70,13 +71,14 @@ sub compile {
 	return $self->{compile}->($template, $opts);
 }
 sub compile_file {
-	return $_[0]->compile( slurp($_[1]), $_[2] );
+	return $_[0]->compile( scalar slurp($_[1]), $_[2] );
 }
 
 
 sub registerHelper {
 	my( $self, $name, $code ) = @_;
 	# We need a unique name to store our new helper inside the global javascript context.
+	# # This is probably unnecessary but is simpler and shouldn't cause problems for now.
 	my $bind_name = "JVHELPER$name";
 
 	if( ref $code eq 'CODE' ) {
@@ -100,28 +102,71 @@ sub registerHelper {
 }
 
 sub template {
-	my( $self, $template_code ) = @_;
+	my( $self, $template ) = @_;
 
-	if( ref $template_code eq '' ) {
+	if( ref $template eq '' ) {
 		#Parens force 'expression' context
-		return $self->{template}->($self->eval( "($template_code)" )); 
+		return $self->{template}->($self->eval( "($template)" )); 
 	}
-	elsif( ref $template_code eq 'HASH' ) {
-		return $self->{template}->( $template_code );
+	elsif( ref $template eq 'HASH' ) {
+		return $self->{template}->( $template );
 	}
+	else { die "Bad arg [$template] (string or hash)" }
 }
 
 sub add_to_context {
 	my( $self, $code ) = @_;
+
 	$self->eval( $code );
+	# This deliberately returns nothing.
+	return;
 }
 sub add_to_context_file {
-	$_[0]->add_to_context( slurp $_[1] );
+	$_[0]->add_to_context( scalar slurp $_[1] );
 }
 
 sub render_string {
 	my( $self, $template, $env ) = @_;
-	$self->compile( $template )->( $env );
+
+	return $self->compile( $template )->( $env );
+}
+
+
+sub add_template {
+	my( $self, $name, $template ) = @_;
+
+	$self->{template_code}{$name} = $self->precompile( $template );
+
+	return $self->{templates}{$name} = $self->compile( $template );
+}
+
+sub add_template_file {
+	my( $self, $file ) = @_;
+
+	die "Failed to find $file $!" unless -e $file and -r $file;
+	
+	my $name = (File::Spec->splitdir($file))[-1];
+		$name =~ s/\..*$//;
+	
+	$self->add_template( $name, scalar slurp $file );
+}
+
+sub execute_template {
+	my( $self, $name, $args ) = @_;
+
+	return $self->{templates}{$name}->( $args );
+}
+
+sub precompiled {
+	my( $self ) = @_;
+
+	my $out = "Handlebars.templates = {}\n";
+
+	while( my( $name, $template ) = each %{ $self->{template_code} } ) {
+		$out .= "Handlebars.templates.$name = Handlebars.template( $template );\n";
+	}
+
+	print $out;
 }
 
 

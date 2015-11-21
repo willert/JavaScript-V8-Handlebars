@@ -4,11 +4,11 @@ use strict;
 use warnings;
 use Test::More;
 
-plan tests => 3;
+plan tests => 13;
 
-BEGIN {
+#BEGIN {
     use_ok( 'JavaScript::V8::Handlebars' ) || print "Bail out!\n";
-}
+#}
 
 my $hb = JavaScript::V8::Handlebars->new;
 isa_ok( $hb, 'JavaScript::V8::Handlebars' );
@@ -39,3 +39,4 @@ ok( $precompile );
 ok( my $template = $hb->template( $precompile ) );
 
 is( $template->({bar=>43}), "test 43" );
+
