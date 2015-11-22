@@ -4,7 +4,7 @@ use 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use File::ShareDir qw/module_dir/;
 use File::Slurp qw/slurp/;
