@@ -6,10 +6,21 @@ use warnings;
 
 our $VERSION = '0.02';
 
-use File::ShareDir qw/module_dir/;
 use File::Slurp qw/slurp/;
 use File::Spec;
 use JavaScript::V8;
+
+use File::ShareDir qw/module_dir/;
+	my $module_dir = module_dir( __PACKAGE__ );
+	my $JS_FILE = glob "$module_dir/*.js";
+
+
+###### Dynamic methods #####################
+	for my $meth ( qw/safeString escapeString registerPartial/ ) {
+		no strict 'refs';
+			*$meth = sub { $_[0]->{$meth}->(@_[1..$#_]) };
+	}
+##############################################
 
 sub new {
 	my( $class, @opts ) = @_;
@@ -26,11 +37,9 @@ sub _build_context {
 
 	my $c = $self->{c} = JavaScript::V8::Context->new;
 
-	my $module_dir = module_dir( __PACKAGE__ );
-	my $js_file = glob "$module_dir/*.js";
 
 	# slurp returns a list in list context..
-	$c->eval( scalar slurp $js_file );
+	$c->eval( scalar slurp $JS_FILE );
 	die $@ if $@;
 
 
@@ -39,11 +48,6 @@ sub _build_context {
 		die $@ if $@;
 	}
 
-	for my $meth ( qw/safeString escapeString registerPartial/ ) {
-		my $code = $self->{$meth};
-		no strict 'refs';
-			*$meth = sub { shift; $code->(@_); };
-	}
 }
 
 sub c {
