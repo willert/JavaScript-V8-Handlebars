@@ -1,18 +1,18 @@
 package JavaScript::V8::Handlebars;
 
-use 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 use File::Slurp qw/slurp/;
 use File::Spec;
+use File::Find qw/find/;
 use JavaScript::V8;
 
 use File::ShareDir qw/module_dir/;
 	my $module_dir = module_dir( __PACKAGE__ );
-	my $JS_FILE = glob "$module_dir/*.js";
+	my $JS_FILE = glob "$module_dir/*.js"; #This has global state, by the way
 
 
 ###### Dynamic methods #####################
@@ -43,6 +43,7 @@ sub _build_context {
 	die $@ if $@;
 
 
+	# Store subrefs for each javascript method
 	for my $meth (qw/precompile registerHelper registerPartial template compile safeString escapeString/ ) {
 		$self->{$meth} = $c->eval( "Handlebars.$meth" );
 		die $@ if $@;
@@ -95,6 +96,7 @@ sub registerHelper {
 
 		$code =~ s/function/function $bind_name/;
 
+		#TODO Why do we name the function?
 		$self->eval($code);
 		$self->eval( "Handlebars.registerHelper('$name',$bind_name)" );
 	}
@@ -145,14 +147,31 @@ sub add_template {
 }
 
 sub add_template_file {
-	my( $self, $file ) = @_;
+	my( $self, $file, $base ) = @_;
+	if( $base ) { $file = File::Spec->rel2abs( $file, $base ); }
 
-	die "Failed to find $file $!" unless -e $file and -r $file;
+	die "Failed to read $file $!" unless -e $file and -r $file;
 	
-	my $name = (File::Spec->splitdir($file))[-1];
+	my $name = File::Spec->abs2rel( $file, $base );
 		$name =~ s/\..*$//;
-	
+
 	$self->add_template( $name, scalar slurp $file );
+}
+
+sub add_template_dir {
+	my( $self, $dir, $ext ) = @_;
+	$ext ||= 'hbs';
+
+	find( { wanted => sub {
+			return unless -f;
+			return unless /\.$ext$/;
+			warn "Can't read $_" unless -r;
+
+			$self->add_template_file( File::Spec->rel2abs($_), $dir );
+		},
+		no_chdir => 1,
+	}, $dir );
+
 }
 
 sub execute_template {
