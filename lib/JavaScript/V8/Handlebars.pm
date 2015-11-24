@@ -198,11 +198,11 @@ sub precompiled {
 
 =head1 NAME
 
-JavaScript::V8::Handlebars - The great new JavaScript::V8::Handlebars!
+JavaScript::V8::Handlebars - Compile and execute Handlebars templates via the actual JS library
 
 =head1 VERSION
 
-Version 0.01
+Version 0.03
 
 =head1 AUTHOR
 
