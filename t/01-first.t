@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Test::More;
 
-plan tests => 18;
+plan tests => 19;
 
 #BEGIN {
     use_ok( 'JavaScript::V8::Handlebars' ) || print "Bail out!\n";
@@ -51,3 +51,6 @@ ok( $c->eval( $code ) );
 is( $c->eval( "Handlebars.templates.precompiletest({var:'precompiled'})" ), "hello this is precompiled" );
 ok( not defined $@ );
 
+
+eval { JavaScript::V8::Handlebars->new };
+ok( not $@ );

@@ -1,23 +1,30 @@
 package JavaScript::V8::Handlebars;
 
-use 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
-use File::ShareDir qw/module_dir/;
 use File::Slurp qw/slurp/;
 use File::Spec;
+use File::Find ();
 use JavaScript::V8;
+use File::ShareDir ();
 
-# get Handlebars library path once (module_dir seems to produce strange
-# errors when called multiple times in an persistent environment).
-# This also makes it possible for users to use their own libraries.
+# Get Handlebars library path once to make it possible
+# for users to use their own libraries.
 our @LIBRARY_PATH = do {
-	my $module_dir = module_dir( __PACKAGE__ );
-	scalar glob "$module_dir/handlebars*.js";
+	my $module_dir = File::ShareDir::module_dir( __PACKAGE__ );
+	my ( $lib ) = glob "$module_dir/handlebars*.js"; # list context avoids global state
+  $lib;
 };
+
+###### Dynamic methods #####################
+	for my $meth ( qw/SafeString escapeExpression / ) {
+		no strict 'refs';
+			*$meth = sub { $_[0]->{$meth}->(@_[1..$#_]) };
+	}
+##############################################
 
 sub new {
 	my( $class, @opts ) = @_;
@@ -52,6 +59,7 @@ sub _build_context {
 		$self->eval( "var $hb = Handlebars.create();" );
 	}
 
+	# Store subrefs for each javascript method
 	for my $meth (qw/precompile registerHelper registerPartial template compile SafeString escapeExpression/ ) {
 		# lots of Handlebars methods operate on 'this' so we have to bind our
 		# function calls to the object in use
@@ -171,14 +179,31 @@ sub add_template {
 }
 
 sub add_template_file {
-	my( $self, $file ) = @_;
+	my( $self, $file, $base ) = @_;
+	if( $base ) { $file = File::Spec->rel2abs( $file, $base ); }
 
-	die "Failed to find $file $!" unless -e $file and -r $file;
+	die "Failed to read $file $!" unless -e $file and -r $file;
 	
-	my $name = (File::Spec->splitdir($file))[-1];
+	my $name = File::Spec->abs2rel( $file, $base );
 		$name =~ s/\..*$//;
-	
+
 	$self->add_template( $name, scalar slurp $file );
+}
+
+sub add_template_dir {
+	my( $self, $dir, $ext ) = @_;
+	$ext ||= 'hbs';
+
+	File::Find::find( { wanted => sub {
+			return unless -f;
+			return unless /\.$ext$/;
+			warn "Can't read $_" unless -r;
+
+			$self->add_template_file( File::Spec->rel2abs($_), $dir );
+		},
+		no_chdir => 1,
+	}, $dir );
+
 }
 
 sub execute_template {
@@ -203,13 +228,98 @@ sub precompiled {
 
 1;
 
+__END__
+
 =head1 NAME
 
-JavaScript::V8::Handlebars - The great new JavaScript::V8::Handlebars!
+JavaScript::V8::Handlebars - Compile and execute Handlebars templates via the actual JS library
 
-=head1 VERSION
+=head1 SYNOPSIS
 
-Version 0.01
+	use JavaScript::V8::Handlebars
+
+	my $hbjs = JavaScript::V8::Handlebars->new;
+
+	print $hbjs->render_string( "Hello {{var}}", { var => "world" } );
+
+	my $template = $hbjs->compile_file( "template.hbs" );
+	print $template->({ var => "world" });
+
+=head1 METHODS
+
+For now the majority of these methods work as described in L<http://handlebarsjs.com/>
+
+=over 4
+
+=item $hbjs->new()
+
+=item $hbjs->c()
+
+Returns the internal JavaScript::V8 object, useful for executing javascript code in the context of the module.
+
+=item $hbjs->eval($javascript_string)
+
+Wrapper function for C<$hbjs->c->eval> that checks for errors and throws an exception.
+
+=item $hbjs->add_to_context_file($javascript_filename)
+
+=item $hbjs->add_to_context($javascript_string)
+
+Shortcut for evaluating javascript intended to add global functions and objects to the current environment.
+
+=item $hbjs->precompile_file($template_filename)
+
+=item $hbjs->precompile($template_string)
+
+Takes a template and translates it into the javascript code suitable for passing to the C<template> method.
+
+=item $hbjs->compile_file($template_filename)
+
+=item $hbjs->compile($template_string)
+
+Takes a template and returns a subref that takes a hashref containing variables as an argument and returns the text of the executed template.
+
+=item $hbjs->registerHelper
+
+TBD
+
+=item $hbjs->template( $compiled_javascript_string | $compiled_perl_object )
+
+Takes a precompiled template datastructure and returns a subref ready to be executed.
+
+=item $hbjs->render_string( $template_string, \%context_vars )
+
+Wrapper method for compiling and then executing a template passed as a string.
+
+=item $hbjs->add_template_dir( $directory, [$extension] )
+
+=item $hbjs->add_template_file( $filename, [$base_path] )
+
+=item $hbjs->add_template( $name, $template_string )
+
+Takes a template, compiles it and adds it to the internal store of cached templates for C<execute_template> to use.
+
+=item $hbjs->execute_template( $name, \%context_vars )
+
+Executes a cached template.
+
+=item $hbjs->precompiled()
+
+Returns a string of javascript consisting of all the templates in the cache ready for execution by the browser.
+
+=item $hbjs->safeString($string)
+
+Whatever the original Handlebar function does.
+
+=item $hbjs->escapeString ($string)
+
+Whatever the original Handlebar function does.
+
+=item $hbjs->registerPartial($string)
+
+Whatever the original Handlebar function does.
+
+=back
 
 =head1 AUTHOR
 
@@ -217,12 +327,7 @@ Robert Grimes, C<< <rmzgrimes at gmail.com> >>
 
 =head1 BUGS
 
-Please report any bugs or feature requests to C<bug-javascript-v8-handlebars at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=JavaScript-V8-Handlebars>.  I will be notified, and then you'll
-automatically be notified of progress on your bug as I make changes.
-
-
-
+Please report and bugs or feature requests through the interfaces at L<https://github.com/rmzg/JavaScript-V8-Handlebars>
 
 =head1 SUPPORT
 
@@ -231,69 +336,15 @@ You can find documentation for this module with the perldoc command.
 perldoc JavaScript::V8::Handlebars
 
 
-You can also look for information at:
-
-=over 4
-
-=item * RT: CPAN's request tracker (report bugs here)
-
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=JavaScript-V8-Handlebars>
-
-=item * AnnoCPAN: Annotated CPAN documentation
-
-L<http://annocpan.org/dist/JavaScript-V8-Handlebars>
-
-=item * CPAN Ratings
-
-L<http://cpanratings.perl.org/d/JavaScript-V8-Handlebars>
-
-=item * Search CPAN
-
-L<http://search.cpan.org/dist/JavaScript-V8-Handlebars/>
-
-=back
-
-
-
 =head1 LICENSE AND COPYRIGHT
 
 Copyright 2015 Robert Grimes.
 
-This program is free software; you can redistribute it and/or modify it
-under the terms of the the Artistic License (2.0). You may obtain a
-copy of the full license at:
+This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 
-L<http://www.perlfoundation.org/artistic_license_2_0>
 
-Any use, modification, and distribution of the Standard or Modified
-Versions is governed by this Artistic License. By using, modifying or
-distributing the Package, you accept this license. Do not use, modify,
-or distribute the Package, if you do not accept this license.
+=head1 SEE ALSO
 
-If your Modified Version has been derived from a Modified Version made
-by someone other than you, you are nevertheless required to ensure that
-your Modified Version complies with the requirements of this license.
-
-This license does not grant you the right to use any trademark, service
-mark, tradename, or logo of the Copyright Holder.
-
-This license includes the non-exclusive, worldwide, free-of-charge
-patent license to make, have made, use, offer to sell, sell, import and
-otherwise transfer the Package with respect to any patent claims
-licensable by the Copyright Holder that are necessarily infringed by the
-Package. If you institute patent litigation (including a cross-claim or
-counterclaim) against any party alleging that the Package constitutes
-direct or contributory patent infringement, then this Artistic License
-to you shall terminate on the date that such litigation is filed.
-
-Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
-AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
-THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
-YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR
-CONTRIBUTOR WILL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, OR
-CONSEQUENTIAL DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THE PACKAGE,
-EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
+L<https://github.com/rmzg/JavaScript-V8-Handlebars>, L<http://handlebarsjs.com/>
 
 =cut
