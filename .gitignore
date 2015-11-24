@@ -17,3 +17,6 @@ pod2htm*.tmp
 pm_to_blib
 MojoX-Renderer-Handlebars-*
 MojoX-Renderer-Handlebars-*.tar.gz
+JavaScript-V8-Handlebars-*
+JavaScript-V8-Handlebars-*.tar.gz
+*bak
