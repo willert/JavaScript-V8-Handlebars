@@ -19,11 +19,12 @@ our @LIBRARY_PATH = do {
   $lib;
 };
 
+
 ###### Dynamic methods #####################
-	for my $meth ( qw/SafeString escapeExpression / ) {
-		no strict 'refs';
-			*$meth = sub { $_[0]->{$meth}->(@_[1..$#_]) };
-	}
+for my $meth ( qw/SafeString escapeExpression / ) {
+	no strict 'refs';
+		*$meth = sub { shift->{$meth}->(@_) };
+}
 ##############################################
 
 sub new {
@@ -65,12 +66,6 @@ sub _build_context {
 		# function calls to the object in use
 		$self->{$meth} = $self->eval( "$hb.$meth.bind( $hb )" );
 	}
-}
-
-# directly expose these methods (only called once, not for every new)
-for my $meth ( qw/SafeString escapeExpression / ) {
-	no strict 'refs';
-	*$meth = sub { shift->{$meth}->(@_); };
 }
 
 sub c {
