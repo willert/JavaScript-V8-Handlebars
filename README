@@ -1,85 +1,98 @@
-JavaScript-V8-Handlebars
+NAME
+    JavaScript::V8::Handlebars - Compile and execute Handlebars templates
+    via the actual JS library
 
-The README is used to introduce the module and provide instructions on
-how to install the module, any machine dependencies it may have (for
-example C compilers and installed libraries) and any other information
-that should be provided before the module is installed.
+SYNOPSIS
+            use JavaScript::V8::Handlebars
 
-A README file is required for CPAN modules since CPAN extracts the README
-file from a module distribution so that people browsing the archive
-can use it to get an idea of the module's uses. It is usually a good idea
-to provide version information here so that people can decide whether
-fixes for the module are worth downloading.
+            my $hbjs = JavaScript::V8::Handlebars->new;
 
+            print $hbjs->render_string( "Hello {{var}}", { var => "world" } );
 
-INSTALLATION
+            my $template = $hbjs->compile_file( "template.hbs" );
+            print $template->({ var => "world" });
 
-To install this module, run the following commands:
+METHODS
+    For now the majority of these methods work as described in
+    <http://handlebarsjs.com/>
 
-	perl Makefile.PL
-	make
-	make test
-	make install
+    $hbjs->new()
+    $hbjs->c()
+        Returns the internal JavaScript::V8 object, useful for executing
+        javascript code in the context of the module.
 
-SUPPORT AND DOCUMENTATION
+    $hbjs->eval($javascript_string)
+        Wrapper function for "$hbjs-"c->eval> that checks for errors and
+        throws an exception.
 
-After installing, you can find documentation for this module with the
-perldoc command.
+    $hbjs->add_to_context_file($javascript_filename)
+    $hbjs->add_to_context($javascript_string)
+        Shortcut for evaluating javascript intended to add global functions
+        and objects to the current environment.
+
+    $hbjs->precompile_file($template_filename)
+    $hbjs->precompile($template_string)
+        Takes a template and translates it into the javascript code suitable
+        for passing to the "template" method.
+
+    $hbjs->compile_file($template_filename)
+    $hbjs->compile($template_string)
+        Takes a template and returns a subref that takes a hashref
+        containing variables as an argument and returns the text of the
+        executed template.
+
+    $hbjs->registerHelper
+        TBD
+
+    $hbjs->template( $compiled_javascript_string | $compiled_perl_object )
+        Takes a precompiled template datastructure and returns a subref
+        ready to be executed.
+
+    $hbjs->render_string( $template_string, \%context_vars )
+        Wrapper method for compiling and then executing a template passed as
+        a string.
+
+    $hbjs->add_template_dir( $directory, [$extension] )
+    $hbjs->add_template_file( $filename, [$base_path] )
+    $hbjs->add_template( $name, $template_string )
+        Takes a template, compiles it and adds it to the internal store of
+        cached templates for "execute_template" to use.
+
+    $hbjs->execute_template( $name, \%context_vars )
+        Executes a cached template.
+
+    $hbjs->precompiled()
+        Returns a string of javascript consisting of all the templates in
+        the cache ready for execution by the browser.
+
+    $hbjs->safeString($string)
+        Whatever the original Handlebar function does.
+
+    $hbjs->escapeString ($string)
+        Whatever the original Handlebar function does.
+
+    $hbjs->registerPartial($string)
+        Whatever the original Handlebar function does.
+
+AUTHOR
+    Robert Grimes, "<rmzgrimes at gmail.com>"
+
+BUGS
+    Please report and bugs or feature requests through the interfaces at
+    <https://github.com/rmzg/JavaScript-V8-Handlebars>
+
+SUPPORT
+    You can find documentation for this module with the perldoc command.
 
     perldoc JavaScript::V8::Handlebars
 
-You can also look for information at:
-
-    RT, CPAN's request tracker (report bugs here)
-        http://rt.cpan.org/NoAuth/Bugs.html?Dist=JavaScript-V8-Handlebars
-
-    AnnoCPAN, Annotated CPAN documentation
-        http://annocpan.org/dist/JavaScript-V8-Handlebars
-
-    CPAN Ratings
-        http://cpanratings.perl.org/d/JavaScript-V8-Handlebars
-
-    Search CPAN
-        http://search.cpan.org/dist/JavaScript-V8-Handlebars/
-
-
 LICENSE AND COPYRIGHT
+    Copyright 2015 Robert Grimes.
 
-Copyright (C) 2015 Robert Grimes
+    This library is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
 
-This program is free software; you can redistribute it and/or modify it
-under the terms of the the Artistic License (2.0). You may obtain a
-copy of the full license at:
-
-L<http://www.perlfoundation.org/artistic_license_2_0>
-
-Any use, modification, and distribution of the Standard or Modified
-Versions is governed by this Artistic License. By using, modifying or
-distributing the Package, you accept this license. Do not use, modify,
-or distribute the Package, if you do not accept this license.
-
-If your Modified Version has been derived from a Modified Version made
-by someone other than you, you are nevertheless required to ensure that
-your Modified Version complies with the requirements of this license.
-
-This license does not grant you the right to use any trademark, service
-mark, tradename, or logo of the Copyright Holder.
-
-This license includes the non-exclusive, worldwide, free-of-charge
-patent license to make, have made, use, offer to sell, sell, import and
-otherwise transfer the Package with respect to any patent claims
-licensable by the Copyright Holder that are necessarily infringed by the
-Package. If you institute patent litigation (including a cross-claim or
-counterclaim) against any party alleging that the Package constitutes
-direct or contributory patent infringement, then this Artistic License
-to you shall terminate on the date that such litigation is filed.
-
-Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
-AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
-THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
-YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR
-CONTRIBUTOR WILL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, OR
-CONSEQUENTIAL DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THE PACKAGE,
-EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+SEE ALSO
+    <https://github.com/rmzg/JavaScript-V8-Handlebars>,
+    <http://handlebarsjs.com/>
 
