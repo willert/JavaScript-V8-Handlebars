@@ -11,39 +11,58 @@ use File::Slurp qw/slurp/;
 use File::Spec;
 use JavaScript::V8;
 
+# get Handlebars library path once (module_dir seems to produce strange
+# errors when called multiple times in an persistent environment).
+# This also makes it possible for users to use their own libraries.
+our @LIBRARY_PATH = do {
+	my $module_dir = module_dir( __PACKAGE__ );
+	scalar glob "$module_dir/handlebars*.js";
+};
+
 sub new {
 	my( $class, @opts ) = @_;
-
 	my $self = bless {}, $class;
-
 	$self->_build_context;
+	return $self;
+}
 
+my $HB_SERIAL = 1;
+sub new_isolated_environment {
+	# see http://handlebarsjs.com/reference.html, section 'Handlebars.create()'
+	my( $class, @opts ) = @_;
+	my $self = bless {}, $class;
+	my $environment = sprintf( 'JV_HB_OBJECT_%d', $HB_SERIAL++ );
+	$self->_build_context( $environment );
 	return $self;
 }
 
 sub _build_context {
-	my( $self ) = @_;
+	my( $self, $environment ) = @_;
 
 	my $c = $self->{c} = JavaScript::V8::Context->new;
 
-	my $module_dir = module_dir( __PACKAGE__ );
-	my $js_file = glob "$module_dir/*.js";
-
-	# slurp returns a list in list context..
-	$c->eval( scalar slurp $js_file );
-	die $@ if $@;
-
-
-	for my $meth (qw/precompile registerHelper registerPartial template compile safeString escapeString/ ) {
-		$self->{$meth} = $c->eval( "Handlebars.$meth" );
-		die $@ if $@;
+	for my $lib ( @LIBRARY_PATH ){
+		$self->eval( scalar slurp( $lib ), $lib ); # setting origin for nicer error messages
 	}
 
-	for my $meth ( qw/safeString escapeString registerPartial/ ) {
-		my $code = $self->{$meth};
-		no strict 'refs';
-			*$meth = sub { shift; $code->(@_); };
+	my $hb = 'Handlebars';
+	if ( $environment ) {
+		# initialize an isolated Handlebars environment
+		$hb = $environment;
+		$self->eval( "var $hb = Handlebars.create();" );
 	}
+
+	for my $meth (qw/precompile registerHelper registerPartial template compile SafeString escapeExpression/ ) {
+		# lots of Handlebars methods operate on 'this' so we have to bind our
+		# function calls to the object in use
+		$self->{$meth} = $self->eval( "$hb.$meth.bind( $hb )" );
+	}
+}
+
+# directly expose these methods (only called once, not for every new)
+for my $meth ( qw/SafeString escapeExpression / ) {
+	no strict 'refs';
+	*$meth = sub { shift->{$meth}->(@_); };
 }
 
 sub c {
@@ -76,26 +95,37 @@ sub compile_file {
 
 
 sub registerHelper {
-	my( $self, $name, $code ) = @_;
-	# We need a unique name to store our new helper inside the global javascript context.
-	# # This is probably unnecessary but is simpler and shouldn't cause problems for now.
-	my $bind_name = "JVHELPER$name";
+	my( $self, $name, $code, $origin ) = @_;
 
 	if( ref $code eq 'CODE' ) {
-		$self->c->bind( $bind_name, $code );
-		$self->eval( "Handlebars.registerHelper('$name',$bind_name)" );
+		$self->{registerHelper}->( $name, $code );
 	}
-	elsif(ref $code eq '') { #Better be javascript
-		# Should this be a requirement?
-		if( $code !~ /function\s*\(/ ) { die "Javascript helper must be an anonymous function!" }
-
-		$code =~ s/function/function $bind_name/;
-
-		$self->eval($code);
-		$self->eval( "Handlebars.registerHelper('$name',$bind_name)" );
+	elsif(ref $code eq '') {
+		# There seems to be no good way to stay in javascript land here,
+		# so we create a perl function from the helper and register it instead.
+		# Parens force 'expression' context so the function reference is returned.
+		my $fnct = $self->eval( "( $code )", $origin || [caller]->[1] );
+		$self->{registerHelper}->( $name, $fnct );
 	}
 	else {
-		die "Bad helper should be CODEREF or JS source [$code]";
+		die "Bad helper: should be CODEREF or JS source [$code]";
+	}
+
+	return 1;
+}
+
+sub registerPartial {
+	my( $self, $name, $tpl ) = @_;
+
+	if( ref $tpl eq '' ) {
+		$tpl = $self->compile( $tpl );
+	}
+
+	if( ref $tpl eq 'CODE') {
+		$self->{registerPartial}->( $name, $tpl );
+	}
+	else {
+		die "Bad partial template: should be CODEREF or template source [$tpl]";
 	}
 
 	return 1;
