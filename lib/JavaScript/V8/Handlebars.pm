@@ -224,30 +224,6 @@ You can find documentation for this module with the perldoc command.
 perldoc JavaScript::V8::Handlebars
 
 
-You can also look for information at:
-
-=over 4
-
-=item * RT: CPAN's request tracker (report bugs here)
-
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=JavaScript-V8-Handlebars>
-
-=item * AnnoCPAN: Annotated CPAN documentation
-
-L<http://annocpan.org/dist/JavaScript-V8-Handlebars>
-
-=item * CPAN Ratings
-
-L<http://cpanratings.perl.org/d/JavaScript-V8-Handlebars>
-
-=item * Search CPAN
-
-L<http://search.cpan.org/dist/JavaScript-V8-Handlebars/>
-
-=back
-
-
-
 =head1 LICENSE AND COPYRIGHT
 
 Copyright 2015 Robert Grimes.
@@ -288,5 +264,9 @@ CONTRIBUTOR WILL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, OR
 CONSEQUENTIAL DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THE PACKAGE,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+
+=head1 SEE ALSO
+
+L<https://github.com/rmzg/JavaScript-V8-Handlebars>
 
 =cut

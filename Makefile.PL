@@ -28,6 +28,17 @@ WriteMakefile(
     },
     dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean => { FILES => 'JavaScript-V8-Handlebars-*' },
+		META_MERGE        => {
+			"meta-spec" => { version => 2 },
+			resources => {
+				repository => {
+					type => 'git',
+					url => 'git://github.com/rmzg/JavaScript-V8-Handlebars.git',
+					web => 'https://github.com/rmzg/JavaScript-V8-Handlebars',
+				},
+			},
+		},
+
 );
 
 package MY;
