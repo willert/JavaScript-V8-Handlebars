@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Test::More;
 
-plan tests => 19;
+plan tests => 24;
 
 #BEGIN {
     use_ok( 'JavaScript::V8::Handlebars' ) || print "Bail out!\n";
@@ -17,19 +17,25 @@ is( $hb->render_string("hello {{name}}", {name=>"bob"}), "hello bob" );
 
 is( $hb->render_string("hello {{#if name}}{{name}}{{/if}}",{name=>"bob"}), "hello bob" );
 
-ok( $hb->registerHelper("helper1",sub{return "helper1 done"}) );
+ok( $hb->register_helper("helper1",sub{return "helper1 done"}) );
 
 is( $hb->render_string( "test {{helper1}}" ), "test helper1 done" );
 
-ok( $hb->registerHelper("helper2","function(){return 'helper2 done'}") );
+ok( $hb->register_helper("helper2","function(){return 'helper2 done'}") );
 
 is( $hb->render_string( "test {{helper2}}" ), "test helper2 done" );
 
 
 is( $hb->render_string( "test {{#each list}}{{var}}{{/each}}", {list=>[{var=>1},{var=>2},{var=>3}]} ),
-	"test 123"
+	"test 123",
+	"Test a built-in helper"
 );
 
+ok( $hb->register_partial( "partial1", "partial1" ) );
+is( $hb->render_string( "test {{> partial1 }}" ), "test partial1", "Testing user defined javascript partials" );
+
+ok( $hb->register_partial( "partial2", $hb->template($hb->precompile("partial2")) ) );
+is( $hb->render_string( "test {{> partial2 }}" ), "test partial2", "Testing user defined code partials" );
 
 is( $hb->compile("test {{foo}}")->({foo=>42}), "test 42" );
 
@@ -53,4 +59,6 @@ ok( not defined $@ );
 
 
 eval { JavaScript::V8::Handlebars->new };
-ok( not $@ );
+ok( ! $@, "Creating multiple objects doesn't explode anything" );
+
+ok( $hb->escape_expression( "foo" ), "Call doesn't die" );

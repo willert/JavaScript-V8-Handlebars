@@ -16,16 +16,8 @@ use File::ShareDir ();
 our @LIBRARY_PATH = do {
 	my $module_dir = File::ShareDir::module_dir( __PACKAGE__ );
 	my ( $lib ) = glob "$module_dir/handlebars*.js"; # list context avoids global state
-  $lib;
+	$lib;
 };
-
-
-###### Dynamic methods #####################
-for my $meth ( qw/SafeString escapeExpression / ) {
-	no strict 'refs';
-		*$meth = sub { shift->{$meth}->(@_) };
-}
-##############################################
 
 sub new {
 	my( $class, @opts ) = @_;
@@ -78,6 +70,11 @@ sub eval {
 	return $ret;
 }
 
+sub escape_expression {
+	my $self = shift;
+	return $self->{escapeExpression}->(@_);
+}
+
 sub precompile {
 	my( $self, $template, $opts ) = @_;
 
@@ -97,7 +94,7 @@ sub compile_file {
 }
 
 
-sub registerHelper {
+sub register_helper {
 	my( $self, $name, $code, $origin ) = @_;
 
 	if( ref $code eq 'CODE' ) {
@@ -117,7 +114,7 @@ sub registerHelper {
 	return 1;
 }
 
-sub registerPartial {
+sub register_partial {
 	my( $self, $name, $tpl ) = @_;
 
 	if( ref $tpl eq '' ) {
@@ -274,7 +271,7 @@ Takes a template and translates it into the javascript code suitable for passing
 
 Takes a template and returns a subref that takes a hashref containing variables as an argument and returns the text of the executed template.
 
-=item $hbjs->registerHelper
+=item $hbjs->register_helper
 
 TBD
 
@@ -310,9 +307,9 @@ Whatever the original Handlebar function does.
 
 Whatever the original Handlebar function does.
 
-=item $hbjs->registerPartial($string)
+=item $hbjs->register_partial($name, $template_string)
 
-Whatever the original Handlebar function does.
+Registers a partial named '$name' with the code in '$template_string' so later templates can access it.
 
 =back
 
