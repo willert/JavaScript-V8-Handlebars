@@ -275,6 +275,8 @@ Arrayref of JS filenames you want to evaluate when you create this object
 
 Returns the internal JavaScript::V8 object, useful for executing javascript code in the context of the module.
 
+=item $hbjs->eval_file($javascript_filename)
+
 =item $hbjs->eval($javascript_string)
 
 Wrapper function for C<$hbjs->c->eval> that checks for errors and throws an exception.
