@@ -3,13 +3,14 @@ package JavaScript::V8::Handlebars;
 use strict;
 use warnings;
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 use File::Slurp qw/slurp/;
 use File::Spec;
 use File::Find ();
-use JavaScript::V8;
 use File::ShareDir ();
+
+use JavaScript::V8;
 
 # Get Handlebars library path once to make it possible
 # for users to use their own libraries.
@@ -26,18 +27,8 @@ sub new {
 	return $self;
 }
 
-my $HB_SERIAL = 1;
-sub new_isolated_environment {
-	# see http://handlebarsjs.com/reference.html, section 'Handlebars.create()'
-	my( $class, @opts ) = @_;
-	my $self = bless {}, $class;
-	my $environment = sprintf( 'JV_HB_OBJECT_%d', $HB_SERIAL++ );
-	$self->_build_context( $environment );
-	return $self;
-}
-
 sub _build_context {
-	my( $self, $environment ) = @_;
+	my( $self ) = @_;
 
 	my $c = $self->{c} = JavaScript::V8::Context->new;
 
@@ -46,14 +37,8 @@ sub _build_context {
 	}
 
 	my $hb = 'Handlebars';
-	if ( $environment ) {
-		# initialize an isolated Handlebars environment
-		$hb = $environment;
-		$self->eval( "var $hb = Handlebars.create();" );
-	}
-
 	# Store subrefs for each javascript method
-	for my $meth (qw/precompile registerHelper registerPartial template compile SafeString escapeExpression/ ) {
+	for my $meth (qw/precompile registerHelper registerPartial template compile escapeExpression/ ) {
 		# lots of Handlebars methods operate on 'this' so we have to bind our
 		# function calls to the object in use
 		$self->{$meth} = $self->eval( "$hb.$meth.bind( $hb )" );
