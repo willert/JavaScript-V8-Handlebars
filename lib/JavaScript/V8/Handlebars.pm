@@ -10,6 +10,7 @@ use File::Spec;
 use File::Find ();
 use File::ShareDir ();
 
+use JSON ();
 use JavaScript::V8;
 
 # Get Handlebars library path once to make it possible
@@ -31,6 +32,21 @@ sub _build_context {
 	my( $self ) = @_;
 
 	my $c = $self->{c} = JavaScript::V8::Context->new;
+
+	$c->bind( console => {
+		log => sub {
+			print scalar @_;
+			my $json = JSON->new->pretty->utf8;
+			for( @_ ) {
+				if( ref $_ ) {
+					print $json->encode( $_ );
+				}
+				else {
+					print "$_\n";
+				}
+			}
+		}
+	} );
 
 	for my $lib ( @LIBRARY_PATH ){
 		$self->eval( scalar slurp( $lib ), $lib ); # setting origin for nicer error messages
