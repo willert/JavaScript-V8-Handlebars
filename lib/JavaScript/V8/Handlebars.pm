@@ -13,23 +13,35 @@ use File::ShareDir ();
 use JSON ();
 use JavaScript::V8;
 
-# Get Handlebars library path once to make it possible
-# for users to use their own libraries.
-our @LIBRARY_PATH = do {
-	my $module_dir = File::ShareDir::module_dir( __PACKAGE__ );
-	my ( $lib ) = glob "$module_dir/handlebars*.js"; # list context avoids global state
-	$lib;
-};
+my $module_dir = File::ShareDir::module_dir( __PACKAGE__ );
+my ( $LIBRARY_PATH ) = glob "$module_dir/handlebars*.js"; # list context avoids global state
+
+sub import {
+	my( $class, %opts ) = @_;
+	if( $opts{ library_path } ) { 
+		$LIBRARY_PATH = $opts{ library_path };
+	}
+}
 
 sub new {
-	my( $class, @opts ) = @_;
+	my( $class, %opts ) = @_;
+
 	my $self = bless {}, $class;
-	$self->_build_context;
+
+	$self->_build_context(%opts);
+
+	# Currently must be absolute or relative to the cwd
+	if( $opts{preload_libs} ) {
+		for( @{ $opts{preload_libs} } ) {
+			$self->eval_file( $_ );
+		}
+	}
+
 	return $self;
 }
 
 sub _build_context {
-	my( $self ) = @_;
+	my( $self, %opts ) = @_;
 
 	my $c = $self->{c} = JavaScript::V8::Context->new;
 
@@ -48,9 +60,9 @@ sub _build_context {
 		}
 	} );
 
-	for my $lib ( @LIBRARY_PATH ){
-		$self->eval( scalar slurp( $lib ), $lib ); # setting origin for nicer error messages
-	}
+	my $handlebars_path = $opts{library_path} || $LIBRARY_PATH;
+
+	$self->eval_file( $handlebars_path );
 
 	my $hb = 'Handlebars';
 	# Store subrefs for each javascript method
@@ -65,10 +77,19 @@ sub c {
 	return $_[0]->{c};
 }
 sub eval {
-	my $self = shift;
-	my $ret = $self->{c}->eval(@_);
+	my( $self, $code, $origin ) = @_;
+	$origin ||= join " ", (caller(1))[0..3]; #package, filename, line, subroutine
+
+	my $ret = $self->{c}->eval($code, $origin);
+
 	die $@ if $@;
 	return $ret;
+}
+
+sub eval_file {
+	my( $self, $file ) = @_;
+
+	$self->eval( scalar slurp($file), $file ); 
 }
 
 sub escape_expression {
@@ -145,16 +166,6 @@ sub template {
 	else { die "Bad arg [$template] (string or hash)" }
 }
 
-sub add_to_context {
-	my( $self, $code ) = @_;
-
-	$self->eval( $code );
-	# This deliberately returns nothing.
-	return;
-}
-sub add_to_context_file {
-	$_[0]->add_to_context( scalar slurp $_[1] );
-}
 
 sub render_string {
 	my( $self, $template, $env ) = @_;
@@ -244,7 +255,21 @@ For now the majority of these methods work as described in L<http://handlebarsjs
 
 =over 4
 
-=item $hbjs->new()
+=item $hbjs->new(%opts)
+
+Arguments:
+
+=over 4
+
+=item library_path => $path
+
+Path to the specific handlebars.js file you want to use.
+
+=item preload_libs => [qw/paths here/]
+
+Arrayref of JS filenames you want to evaluate when you create this object
+
+=back
 
 =item $hbjs->c()
 
@@ -253,12 +278,6 @@ Returns the internal JavaScript::V8 object, useful for executing javascript code
 =item $hbjs->eval($javascript_string)
 
 Wrapper function for C<$hbjs->c->eval> that checks for errors and throws an exception.
-
-=item $hbjs->add_to_context_file($javascript_filename)
-
-=item $hbjs->add_to_context($javascript_string)
-
-Shortcut for evaluating javascript intended to add global functions and objects to the current environment.
 
 =item $hbjs->precompile_file($template_filename)
 
