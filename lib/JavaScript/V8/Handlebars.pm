@@ -203,6 +203,8 @@ sub add_template_dir {
 	my( $self, $dir, $ext ) = @_;
 	$ext ||= 'hbs';
 
+	die "Failed to find [$dir]" unless -r $dir; #TODO Should this be fatal or a warning?
+
 	File::Find::find( { wanted => sub {
 			return unless -f;
 			return unless /\.$ext$/;
@@ -213,6 +215,7 @@ sub add_template_dir {
 		no_chdir => 1,
 	}, $dir );
 
+	return 1; #We got this far we suceeeded?
 }
 
 sub execute_template {
@@ -221,7 +224,7 @@ sub execute_template {
 	return $self->{templates}{$name}->( $args );
 }
 
-sub precompiled {
+sub bundle {
 	my( $self ) = @_;
 
 	my $out = "var template = Handlebars.template, templates = Handlebars.templates = Handlebars.templates || {};\n";
@@ -258,7 +261,7 @@ JavaScript::V8::Handlebars - Compile and execute Handlebars templates via the ac
 	$hbjs->add_template_dir( './templates' );
 
 	open my $oh, ">", "template.bundle.js" or die $!;
-	print $oh $hbjs->precompiled;
+	print $oh $hbjs->bundle;
 	close $oh;
 
 =head1 METHODS
@@ -329,7 +332,7 @@ Takes a template, compiles it and adds it to the internal store of cached templa
 
 Executes a cached template.
 
-=item $hbjs->precompiled()
+=item $hbjs->bundle()
 
 Returns a string of javascript consisting of all the templates in the cache ready for execution by the browser.
 

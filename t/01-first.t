@@ -6,9 +6,7 @@ use Test::More;
 
 plan tests => 24;
 
-#BEGIN {
-    use_ok( 'JavaScript::V8::Handlebars' ) || print "Bail out!\n";
-#}
+use_ok( 'JavaScript::V8::Handlebars' ) || print "Bail out!\n";
 
 my $hb = JavaScript::V8::Handlebars->new;
 isa_ok( $hb, 'JavaScript::V8::Handlebars' );
@@ -50,7 +48,7 @@ is( $template->({bar=>43}), "test 43" );
 my $c = $hb->c; #Get a JS context with Handlebars preloaded
 
 ok( $hb->add_template( "precompiletest", "hello this is {{var}}" ) );
-my $code = $hb->precompiled;
+my $code = $hb->bundle;
 ok( $code );
 ok( $c->eval( $code ) );
 
