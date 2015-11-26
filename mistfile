@@ -1,0 +1,5 @@
+perl '5.14.2';
+
+prepend 'ExtUtils::ParseXS'; # for JavaScript::V8
+prepend 'JSON';
+prepend 'File::Share';
