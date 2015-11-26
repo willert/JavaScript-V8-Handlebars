@@ -19,7 +19,12 @@ my ( $LIBRARY_PATH ) = glob "$module_dir/handlebars*.js"; # list context avoids 
 sub import {
 	my( $class, %opts ) = @_;
 	if( $opts{ library_path } ) { 
-		$LIBRARY_PATH = $opts{ library_path };
+		if( -r $opts{ library_path } ) {
+			$LIBRARY_PATH = $opts{ library_path };
+		}
+		else {
+			die "Can't read path [$opts{library_path}] (should be readable js file!)";
+		}
 	}
 }
 
@@ -240,7 +245,8 @@ JavaScript::V8::Handlebars - Compile and execute Handlebars templates via the ac
 
 =head1 SYNOPSIS
 
-	use JavaScript::V8::Handlebars
+	use JavaScript::V8::Handlebars;
+	#use JavaScript::V8::Handlebars ( library_path => "/path/to/handlebars.js" );
 
 	my $hbjs = JavaScript::V8::Handlebars->new;
 
@@ -248,6 +254,12 @@ JavaScript::V8::Handlebars - Compile and execute Handlebars templates via the ac
 
 	my $template = $hbjs->compile_file( "template.hbs" );
 	print $template->({ var => "world" });
+
+	$hbjs->add_template_dir( './templates' );
+
+	open my $oh, ">", "template.bundle.js" or die $!;
+	print $oh $hbjs->precompiled;
+	close $oh;
 
 =head1 METHODS
 
