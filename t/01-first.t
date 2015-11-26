@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Test::More;
 
-plan tests => 24;
+#plan tests => 25;
 
 use_ok( 'JavaScript::V8::Handlebars' ) || print "Bail out!\n";
 
@@ -60,3 +60,7 @@ eval { JavaScript::V8::Handlebars->new };
 ok( ! $@, "Creating multiple objects doesn't explode anything" );
 
 ok( $hb->escape_expression( "foo" ), "Call doesn't die" );
+
+ok( eval{ $hb->eval( "console.log()" ); 1; }, "Console.log doesn't die!" );
+
+done_testing();

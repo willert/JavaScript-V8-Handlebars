@@ -49,21 +49,8 @@ sub _build_context {
 	my( $self, %opts ) = @_;
 
 	my $c = $self->{c} = JavaScript::V8::Context->new;
+	$self->_add_console;
 
-	$c->bind( console => {
-		log => sub {
-			print scalar @_;
-			my $json = JSON->new->pretty->utf8;
-			for( @_ ) {
-				if( ref $_ ) {
-					print $json->encode( $_ );
-				}
-				else {
-					print "$_\n";
-				}
-			}
-		}
-	} );
 
 	my $handlebars_path = $opts{library_path} || $LIBRARY_PATH;
 
@@ -76,6 +63,24 @@ sub _build_context {
 		# function calls to the object in use
 		$self->{$meth} = $self->eval( "$hb.$meth.bind( $hb )" );
 	}
+}
+
+sub _add_console {
+	my( $self ) = @_;
+
+	$self->c->bind( console => {
+		log => sub {
+			my $json = JSON->new->pretty->utf8;
+			for( @_ ) {
+				if( ref $_ ) {
+					print $json->encode( $_ );
+				}
+				else {
+					print "$_\n";
+				}
+			}
+		}
+	} );
 }
 
 sub c {
@@ -308,9 +313,10 @@ Takes a template and translates it into the javascript code suitable for passing
 
 Takes a template and returns a subref that takes a hashref containing variables as an argument and returns the text of the executed template.
 
-=item $hbjs->register_helper
+=item $hbjs->register_helper( $name, $js_code | $coderef )
 
-TBD
+Takes a name to store the helper under as well as either a perl code reference or a string of javascript to be compiled. 
+These helpers can then be referred to from other templates via the standard Handlebars syntax.
 
 =item $hbjs->template( $compiled_javascript_string | $compiled_perl_object )
 
@@ -322,11 +328,19 @@ Wrapper method for compiling and then executing a template passed as a string.
 
 =item $hbjs->add_template_dir( $directory, [$extension] )
 
+Recurses through a specified directory looking for each file that matches .$extension, which defaults to hbs. For each file it finds it calls 
+add_atemplate_file and caches the template based the relative path to the template file minus the extension.
+Ex. "templates/foo/foo.hbs" is stored under the name as "foo/foo" 
+
 =item $hbjs->add_template_file( $filename, [$base_path] )
+
+Caches a specified template file as part of the object. The stored name is based on the file name with the extension 
+removed and, if available, the path relative to the base path.
+Ex. "templates/bar/bar.hbs" with a $base_path = "templates" will be stored as "bar/bar".
 
 =item $hbjs->add_template( $name, $template_string )
 
-Takes a template, compiles it and adds it to the internal store of cached templates for C<execute_template> to use.
+Takes a template, compiles it and adds it to the internal store of cached templates for C<execute_template> to use. 
 
 =item $hbjs->execute_template( $name, \%context_vars )
 
