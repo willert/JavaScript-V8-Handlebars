@@ -26,3 +26,5 @@ my $bundle = $hb->bundle;
 ok( $bundle =~ m{\['foo/foo'\]}, 'Bundle has cached files in it' );
 ok( $bundle =~ m{\['bar/bar'\]} );
 ok( $bundle =~ m{\['top'\]} );
+
+like( $hb->execute_template("partialtest"), qr/partial/ );

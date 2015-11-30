@@ -235,7 +235,7 @@ sub add_template_dir {
 			my $name = File::Spec->abs2rel( $_, $start_dir );
 				$name =~ s/\..*$//; #Remove extension
 
-			if( $File::Find::dir =~ /(^|\W)partial(\W|$)/ ) {
+			if( $File::Find::dir =~ /(^|\W)partials?(\W|$)/ ) {
 				$self->register_partial_file( $name, $_ );
 			}
 			else {
