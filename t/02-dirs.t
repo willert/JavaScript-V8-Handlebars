@@ -6,8 +6,6 @@ use Test::More;
 
 use FindBin;
 
-plan tests => 9;
-
 use_ok( 'JavaScript::V8::Handlebars' ) || print "Bail out!\n";
 
 my $hb = JavaScript::V8::Handlebars->new;
@@ -23,8 +21,11 @@ like( $hb->execute_template('foo/foo'), qr/foo/i, "Cached a template from a sub-
 
 my $bundle = $hb->bundle;
 
-ok( $bundle =~ m{\['foo/foo'\]}, 'Bundle has cached files in it' );
-ok( $bundle =~ m{\['bar/bar'\]} );
-ok( $bundle =~ m{\['top'\]} );
+like( $bundle, qr{\['foo/foo'\]}, 'Bundle has cached files in it' );
+like( $bundle, qr{\['bar/bar'\]} );
+like( $bundle, qr{\['top'\]} );
+like( $bundle, qr{registerPartial\('partials/part1'}, "Includes the partial" );
 
 like( $hb->execute_template("partialtest"), qr/partial/ );
+
+done_testing;

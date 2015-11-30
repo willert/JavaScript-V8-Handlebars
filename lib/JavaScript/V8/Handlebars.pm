@@ -162,17 +162,17 @@ sub register_partial_file {
 }
 
 sub register_partial {
-	my( $self, $name, $tpl ) = @_;
+	my( $self, $name, $template ) = @_;
 
-	if( ref $tpl eq '' ) {
-		$tpl = $self->compile( $tpl );
+	if( ref $template eq 'CODE') {
+		$self->{registerPartial}->( $name, $template );
 	}
-
-	if( ref $tpl eq 'CODE') {
-		$self->{registerPartial}->( $name, $tpl );
+	elsif( ref $template eq '' ) {
+		$self->{registerPartial}->( $name, $self->compile( $template ) );
+		$self->{partials}{$name} = $self->precompile( $template );
 	}
 	else {
-		die "Bad partial template: should be CODEREF or template source [$tpl]";
+		die "Bad partial template: should be CODEREF or template source [$template]";
 	}
 
 	return 1;
@@ -258,9 +258,17 @@ sub bundle {
 
 	my $out = "var template = Handlebars.template, templates = Handlebars.templates = Handlebars.templates || {};\n";
 
+	#Templates!
 	while( my( $name, $template ) = each %{ $self->{template_code} } ) {
 		$out .= "templates['$name'] = template( $template );\n";
 	}
+
+	#Partials!
+	while( my( $name, $partial ) = each %{ $self->{partials} } ) {
+		$out .= "Handlebars.registerPartial('$name', template( $partial ));\n";
+	}
+
+
 
 	return $out;
 }
@@ -348,7 +356,7 @@ Wrapper function for C<$hbjs->c->eval> that checks for errors and throws an exce
 
 =item $hbjs->precompile($template_string)
 
-Takes a template and translates it into the javascript code suitable for passing to the C<template> method.
+Takes a template and translates it into the javascript code suitable for passing to the C<template> method. See handlebar.js for specifics.
 
 =item $hbjs->compile_file($template_filename)
 
