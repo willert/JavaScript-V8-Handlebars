@@ -3,7 +3,7 @@ package JavaScript::V8::Handlebars;
 use strict;
 use warnings;
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 use File::Slurp qw/slurp/;
 use File::Spec;
@@ -16,6 +16,8 @@ use JavaScript::V8;
 my $module_dir = File::ShareDir::module_dir( __PACKAGE__ );
 my ( $LIBRARY_PATH ) = glob "$module_dir/handlebars*.js"; # list context avoids global state
 
+###############
+# CLASS METHODS
 sub import {
 	my( $class, %opts ) = @_;
 	if( $opts{ library_path } ) { 
@@ -27,6 +29,11 @@ sub import {
 		}
 	}
 }
+
+#TODO These should also work as object methods and return the file the object is actually using..
+sub handlebars_path { $LIBRARY_PATH }
+sub handlebars_code { slurp $LIBRARY_PATH }
+###############
 
 sub new {
 	my( $class, %opts ) = @_;
@@ -146,6 +153,14 @@ sub register_helper {
 	return 1;
 }
 
+sub register_partial_file {
+	my( $self, $name, $file ) = @_;
+	
+	die "Failed to read [$file]" unless -r $file and -f $file;
+
+	return $self->register_partial( $name, scalar slurp $file );
+}
+
 sub register_partial {
 	my( $self, $name, $tpl ) = @_;
 
@@ -193,32 +208,41 @@ sub add_template {
 }
 
 sub add_template_file {
-	my( $self, $file, $base ) = @_;
-	if( $base ) { $file = File::Spec->rel2abs( $file, $base ); }
+	my( $self, $file, $name ) = @_;
 
 	die "Failed to read $file $!" unless -e $file and -r $file;
+	unless( defined $name ) {
+		$name = (File::Spec->splitpath($file))[2]; #Filename
+		$name =~ s/\..*//; #Remove extension
+	}
 	
-	my $name = File::Spec->abs2rel( $file, $base );
-		$name =~ s/\..*$//;
-
 	$self->add_template( $name, scalar slurp $file );
 }
 
 sub add_template_dir {
-	my( $self, $dir, $ext ) = @_;
+	my( $self, $start_dir, $ext ) = @_;
 	$ext ||= 'hbs';
 
-	die "Failed to find [$dir]" unless -r $dir; #TODO Should this be fatal or a warning?
+	die "Failed to find [$start_dir]" unless -r $start_dir; #TODO Should this be fatal or a warning?
 
-	File::Find::find( { wanted => sub {
+	File::Find::find( { 
+		no_chdir => 1,
+		wanted => sub {
 			return unless -f;
 			return unless /\.$ext$/;
-			warn "Can't read $_" unless -r;
+			warn "Can't read $_" and return unless -r;
 
-			$self->add_template_file( File::Spec->rel2abs($_), $dir );
+			my $name = File::Spec->abs2rel( $_, $start_dir );
+				$name =~ s/\..*$//; #Remove extension
+
+			if( $File::Find::dir =~ /(^|\W)partial(\W|$)/ ) {
+				$self->register_partial_file( $name, $_ );
+			}
+			else {
+				$self->add_template_file( $_, $name );
+			}
 		},
-		no_chdir => 1,
-	}, $dir );
+	}, $start_dir );
 
 	return 1; #We got this far we suceeeded?
 }
@@ -271,7 +295,26 @@ JavaScript::V8::Handlebars - Compile and execute Handlebars templates via the ac
 
 =head1 METHODS
 
-For now the majority of these methods work as described in L<http://handlebarsjs.com/>
+=head2 Package Methods
+
+=over 4
+
+=item use JavaScript::V8::Handlebars ( [library_path => "/path/to/handlebars.js"] );
+
+When C<use>ing the library you may pass an optional path to a (full) handlebars.js file to use instead of the one it comes bundled with.
+
+=item JavaScript::V8::Handlebars->handlebars_path
+
+Returns the path to the handlebars.js file, set at the package level. 
+Note that this may be overridden on a per object basis and can be changed after an object is created.
+
+=item JavaScript::V8::Handlebars->handlebars_code
+
+Returns the complete source of the handlebars.js file specified as above. 
+
+=back
+
+=head2 Object Methods
 
 =over 4
 
@@ -329,14 +372,16 @@ Wrapper method for compiling and then executing a template passed as a string.
 =item $hbjs->add_template_dir( $directory, [$extension] )
 
 Recurses through a specified directory looking for each file that matches .$extension, which defaults to hbs. For each file it finds it calls 
-add_atemplate_file and caches the template based the relative path to the template file minus the extension.
-Ex. "templates/foo/foo.hbs" is stored under the name as "foo/foo" 
+add_template_file with a name based on the path relative to the template $directory
+Ex. "templates/foo/bar.hbs" is stored under the name as "foo/bar" 
 
-=item $hbjs->add_template_file( $filename, [$base_path] )
+If the file found inside a directory named 'partial(s)' then registered_partial_file is called instead with a name derived in the same way as described above.
 
-Caches a specified template file as part of the object. The stored name is based on the file name with the extension 
-removed and, if available, the path relative to the base path.
-Ex. "templates/bar/bar.hbs" with a $base_path = "templates" will be stored as "bar/bar".
+=item $hbjs->add_template_file( $filename, [$name] )
+
+Compiles and caches the specified filename so it's available for later execution or bundling.
+Takes an optional $name argument which specifies the name to internally store the template as, 
+if omitted the name is set to the filename portion of the path with any extension removed.
 
 =item $hbjs->add_template( $name, $template_string )
 
@@ -358,9 +403,13 @@ Whatever the original Handlebar function does.
 
 Whatever the original Handlebar function does.
 
+=item $hbjs->register_partial_file($name, $filename)
+
+Registers a partial with name $name from a file named $filename
+
 =item $hbjs->register_partial($name, $template_string)
 
-Registers a partial named '$name' with the code in '$template_string' so later templates can access it.
+Registers a partial named $name with the code in $template_string and makes it globally available to templates.
 
 =back
 
