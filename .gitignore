@@ -20,3 +20,5 @@ MojoX-Renderer-Handlebars-*.tar.gz
 JavaScript-V8-Handlebars-*
 JavaScript-V8-Handlebars-*.tar.gz
 *bak
+/mist-run
+/perl5/

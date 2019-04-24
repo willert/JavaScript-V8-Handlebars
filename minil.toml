@@ -1,0 +1,7 @@
+name = "JavaScript-V8-Handlebars"
+no_github_issues = true
+script_files = ['bin/*', 'sbin/*', 'script/*']
+license = "Perl_5"
+
+[release]
+do_not_upload_to_cpan = true

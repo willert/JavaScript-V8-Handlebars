@@ -6,7 +6,7 @@ use ExtUtils::MakeMaker;
 use lib 'inc';
 use File::ShareDir::Install;
 
-install_share module => 'JavaScript::V8::Handlebars' => 'share';
+install_share 'JavaScript::V8::Handlebars' => 'share';
 
 WriteMakefile(
     NAME             => 'JavaScript::V8::Handlebars',
@@ -25,20 +25,20 @@ WriteMakefile(
     PREREQ_PM => {
         'JavaScript::V8'    => 0,
         'File::Slurp'       => 0,
-        'File::ShareDir'    => 0,
+        'File::Share'       => '0.14',
     },
     dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean => { FILES => 'JavaScript-V8-Handlebars-*' },
-		META_MERGE        => {
-			"meta-spec" => { version => 2 },
-			resources => {
-				repository => {
-					type => 'git',
-					url => 'git://github.com/rmzg/JavaScript-V8-Handlebars.git',
-					web => 'https://github.com/rmzg/JavaScript-V8-Handlebars',
-				},
-			},
-		},
+    META_MERGE        => {
+      "meta-spec" => { version => 2 },
+      resources => {
+        repository => {
+          type => 'git',
+          url => 'git://github.com/rmzg/JavaScript-V8-Handlebars.git',
+          web => 'https://github.com/rmzg/JavaScript-V8-Handlebars',
+        },
+      },
+    },
 
 );
 
